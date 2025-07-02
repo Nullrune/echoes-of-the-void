@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="./client/src/assets/logo.png" alt="Echoes of the Void" height="500"/>
+  <img src="./client/src/assets/echoes-logo.png" alt="Echoes of the Void" height="500"/>
 </div>
 
 > A minimalist exploration game built on Starknet with the Dojo Engine.
