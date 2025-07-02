@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import useAppStore from "../../zustand/store";
 import { useStarknetConnect } from "../../dojo/hooks/useStarknetConnect";
 import { useGame } from "../../context/game-context";
-import Logo from "../ui/Logo";
+import Logo from "../ui/logo";
 import ParticleBackground from "../ui/particle-background";
 
 export default function WelcomeScreen() {

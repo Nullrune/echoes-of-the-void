@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import logoImage from '../../assets/logo.png';
+import logoImage from '../../assets/echoes-logo.png';
 
 export default function Logo() {
   const [glitchEffect, setGlitchEffect] = useState(false);
