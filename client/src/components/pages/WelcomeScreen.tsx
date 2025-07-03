@@ -1,11 +1,13 @@
 import { useAccount } from "@starknet-react/core";
 import { useSpawnPlayer, useStartGame } from "../../dojo/hooks";
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import useAppStore from "../../zustand/store";
 import { useStarknetConnect } from "../../dojo/hooks/useStarknetConnect";
 import { useGame } from "../../context/game-context";
 import Logo from "../ui/logo";
-import ParticleBackground from "../ui/particle-background";
+import VoidParticles from "../ui/void-particles";
+// Import the background image
+import bgTitleScreen from "../../assets/bg-title-screen.png";
 
 export default function WelcomeScreen() {
   const { status, handleConnect } = useStarknetConnect();
@@ -17,15 +19,19 @@ export default function WelcomeScreen() {
   const [startingGame, setStartingGame] = useState(false);
   const [transitionToGame, setTransitionToGame] = useState(false);
 
-  // Ensure black background
+  // Ensure black background and prevent scrolling
   useEffect(() => {
     document.body.style.backgroundColor = 'black';
     document.documentElement.style.backgroundColor = 'black';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
 
     return () => {
       // Cleanup when component unmounts
       document.body.style.backgroundColor = '';
       document.documentElement.style.backgroundColor = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, []);
 
@@ -122,88 +128,196 @@ export default function WelcomeScreen() {
     );
   }
 
-  return (
-    <div className="flex flex-col items-center justify-start bg-black min-h-screen py-20 px-4">
-      {/* Particle background */}
-      <div className="fixed inset-0 z-0">
-        <ParticleBackground />
-      </div>
+  // Button component for consistent styling with void-themed design
+  interface MenuButtonProps {
+    onClick: () => void;
+    disabled?: boolean;
+    children: ReactNode;
+    isActive?: boolean;
+  }
+  
+  const MenuButton = ({ onClick, disabled = false, children, isActive = true }: MenuButtonProps) => {
+    // Pulse animation for the button border
+    const [isPulsing, setIsPulsing] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    
+    // Void-themed colors
+    const buttonColors = {
+      // Cosmic blue with slight purple tint
+      normal: '#7b88e8',
+      // Brighter blue-purple when hovered
+      hover: '#a5b4fc',
+      // Ethereal glow color
+      glow: 'rgba(123, 136, 232, 0.6)',
+      // Border color
+      border: 'rgba(138, 154, 241, 0.4)'
+    };
+    
+    useEffect(() => {
+      if (!isActive || disabled) return;
       
-      {/* Static noise background effect */}
-      <div className="absolute inset-0 opacity-10" style={{ 
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")',
-        backgroundSize: '200px',
-        zIndex: 2
-      }}></div>
+      const interval = setInterval(() => {
+        setIsPulsing(true);
+        setTimeout(() => setIsPulsing(false), 1000);
+      }, 3000);
       
-      <div className="text-center px-4 sm:px-8 max-w-6xl w-full z-10 relative">
-        {/* Logo - now the main focal point */}
-        <div>
-          <Logo />
+      return () => clearInterval(interval);
+    }, [isActive, disabled]);
+    
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`
+          w-full py-3 px-6 
+          ${isActive 
+            ? "hover:text-white" 
+            : "opacity-70"
+          } 
+          font-bold rounded-full
+          transition-all duration-300 relative overflow-hidden
+          text-lg
+          focus:outline-none
+        `}
+        style={{ 
+          fontFamily: 'Bitsumishi, sans-serif',
+          color: isHovered ? buttonColors.hover : buttonColors.normal,
+          boxShadow: isHovered 
+            ? `0 0 15px ${buttonColors.glow}, 0 0 30px rgba(29, 29, 56, 0.5)` 
+            : isPulsing 
+              ? `0 0 10px ${buttonColors.glow}, 0 0 20px rgba(100, 100, 255, 0.5)` 
+              : `0 0 5px ${buttonColors.glow}, 0 0 10px rgba(100, 100, 255, 0.2)`,
+          border: isHovered 
+            ? `1px solid ${buttonColors.border}` 
+            : '1px solid rgba(255, 255, 255, 0.3)',
+          letterSpacing: '2px',
+          textShadow: `0 0 5px ${buttonColors.glow}`,
+          background: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(4px)',
+          transition: 'all 0.3s ease-in-out'
+        }}
+      >
+        {/* Animated border effect */}
+        <div className="absolute inset-0 pointer-events-none rounded-full">
+          <div className={`absolute inset-0 opacity-50 rounded-full ${isPulsing ? 'animate-pulse' : ''}`} 
+               style={{ 
+                 border: isHovered 
+                   ? `1px solid ${buttonColors.border}` 
+                   : '1px solid rgba(255, 255, 255, 0.5)',
+                 boxShadow: isHovered 
+                   ? `inset 0 0 15px ${buttonColors.glow}` 
+                   : 'inset 0 0 10px rgba(255, 255, 255, 0.2)',
+                 transition: 'all 0.3s ease-in-out'
+               }}>
+          </div>
         </div>
         
-        <p className="text-gray-300 mb-8 sm:mb-12 font-mono text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto px-4">
-          A minimalist, turn-based puzzle-platformer set in a completely dark environment.
-          Navigate by emitting sound pulses that momentarily reveal the hidden map.
-        </p>
+        {/* Button text - integrated with the button */}
+        {children}
+        
+        {/* Hover effect that applies to the entire button */}
+        <div 
+          className="absolute inset-0 rounded-full transition-opacity duration-300"
+          style={{
+            opacity: isHovered ? 0.2 : 0,
+            background: 'linear-gradient(135deg, #1d1d38 0%, #2a2a4f 100%)'
+          }}
+        ></div>
+      </button>
+    );
+  };
 
-        <div className="max-w-sm sm:max-w-md mx-auto px-4 pb-12">
-          {status !== "connected" ? (
-            <button
-              onClick={handleSignIn}
-              className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-white hover:bg-gray-200 text-black font-bold font-mono rounded-none border-2 border-white hover:border-gray-400 transition-all duration-200 relative overflow-hidden group text-sm sm:text-base"
-              style={{ clipPath: 'polygon(0 0, 100% 0, 95% 100%, 5% 100%)' }}
-            >
-              <span className="relative z-10">CONNECT CONTROLLER</span>
-              <span className="absolute inset-0 bg-gray-200 transform scale-x-0 origin-left transition-transform duration-200 group-hover:scale-x-100"></span>
-            </button>
-          ) : !playerExists ? (
-            <button
-              onClick={handleSignIn}
-              disabled={isInitializing}
-              className={`w-full py-3 sm:py-4 px-4 sm:px-6 ${
-                !isInitializing
-                  ? "bg-white hover:bg-gray-200 text-black"
-                  : "bg-gray-600 text-white opacity-70"
-              } font-bold font-mono rounded-none border-2 border-white transition-all duration-200 relative overflow-hidden group text-sm sm:text-base`}
-              style={{ clipPath: 'polygon(0 0, 100% 0, 95% 100%, 5% 100%)' }}
-            >
-              <span className="relative z-10">{isInitializing ? "CREATING PLAYER..." : "CREATE PLAYER"}</span>
-              <span className="absolute inset-0 bg-gray-200 transform scale-x-0 origin-left transition-transform duration-200 group-hover:scale-x-100"></span>
-            </button>
-          ) : (
-            <button
-              onClick={handleStartGame}
-              disabled={startGameState.isLoading || startingGame}
-              className={`w-full py-3 sm:py-4 px-4 sm:px-6 ${
-                !startGameState.isLoading && !startingGame
-                  ? "bg-white hover:bg-gray-200 text-black"
-                  : "bg-gray-600 text-white opacity-70"
-              } font-bold font-mono rounded-none border-2 border-white transition-all duration-200 relative overflow-hidden group text-sm sm:text-base`}
-              style={{ clipPath: 'polygon(0 0, 100% 0, 95% 100%, 5% 100%)' }}
-            >
-              <span className="relative z-10">{startGameState.isLoading || startingGame ? "STARTING GAME..." : "START GAME"}</span>
-              <span className="absolute inset-0 bg-gray-200 transform scale-x-0 origin-left transition-transform duration-200 group-hover:scale-x-100"></span>
-            </button>
-          )}
-
-          {playerError && (
-            <p className="mt-4 text-red-400 font-mono text-sm">{playerError}</p>
-          )}
-          
-          {startGameState.error && (
-            <p className="mt-4 text-red-400 font-mono text-sm">{startGameState.error}</p>
-          )}
-          
-          {gameState.txStatus.type === "error" && (
-            <p className="mt-4 text-red-400 font-mono text-sm">{gameState.txStatus.message}</p>
-          )}
-          
-          {status === "connected" && address && (
-            <div className="mt-6 text-gray-400 text-xs sm:text-sm font-mono tracking-wider">
-              CONNECTED: {address.slice(0, 6)}...{address.slice(-4)}
+  return (
+    <div className="fixed inset-0 flex items-center justify-center overflow-hidden">
+      {/* Background image with ancient filter effect */}
+      <div 
+        className="fixed inset-0 z-0 bg-black"
+        style={{
+          backgroundImage: `url(${bgTitleScreen})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          width: '100%',
+          height: '100%',
+          mixBlendMode: 'normal'
+        }}
+      />
+      
+      {/* Simplified void particles effect */}
+      <VoidParticles 
+        count={50} 
+        color="#7b88e8" 
+        speed={0.2} 
+        opacity={0.3} 
+        size={1.2}
+        className="z-5"
+      />
+      
+      {/* Vignette overlay for better text readability and void-like effect */}
+      <div className="absolute inset-0 bg-gradient-radial from-transparent to-black opacity-80 z-1"></div>
+      
+      {/* Main content container - using flex with auto margins to prevent overflow */}
+      <div className="flex flex-col h-full w-full max-h-full z-10 relative px-4 py-4">
+        {/* Content wrapper with auto scrolling if needed on very small screens */}
+        <div className="flex flex-col justify-center h-full max-h-full">
+          {/* Logo section with reduced height to bring content closer together */}
+          <div className="flex-none flex justify-center items-center">
+            <div className="w-full max-w-xl scale-125 sm:scale-150 mb-8">
+              <Logo />
             </div>
-          )}
+          </div>
+          
+          {/* Button section*/}
+          <div className="flex-none mt-10">
+            <div className="max-w-xs sm:max-w-sm mx-auto space-y-3">
+              {/* Menu buttons with conditional rendering based on state */}
+              {status !== "connected" ? (
+                <MenuButton onClick={handleSignIn}>
+                  CONNECT CONTROLLER
+                </MenuButton>
+              ) : !playerExists ? (
+                <MenuButton onClick={handleSignIn} disabled={isInitializing} isActive={!isInitializing}>
+                  {isInitializing ? "CREATING PLAYER..." : "CREATE PLAYER"}
+                </MenuButton>
+              ) : (
+                <MenuButton 
+                  onClick={handleStartGame} 
+                  disabled={startGameState.isLoading || startingGame} 
+                  isActive={!startGameState.isLoading && !startingGame}
+                >
+                  {startGameState.isLoading || startingGame ? "STARTING GAME..." : "START GAME"}
+                </MenuButton>
+              )}
+
+              {/* Error messages - more compact */}
+              {playerError && (
+                <div className="mt-2 text-red-400 font-mono text-xs bg-black bg-opacity-50 p-1 rounded">
+                  {playerError}
+                </div>
+              )}
+              
+              {startGameState.error && (
+                <div className="mt-2 text-red-400 font-mono text-xs bg-black bg-opacity-50 p-1 rounded">
+                  {startGameState.error}
+                </div>
+              )}
+              
+              {gameState.txStatus.type === "error" && (
+                <div className="mt-2 text-red-400 font-mono text-xs bg-black bg-opacity-50 p-1 rounded">
+                  {gameState.txStatus.message}
+                </div>
+              )}
+              
+              {/* Connection status - more compact */}
+              {status === "connected" && address && (
+                <div className="mt-3 text-xs font-mono tracking-wider bg-black bg-opacity-30 p-1 rounded-sm" style={{ color: '#7b88e8' }}>
+                  CONNECTED: {address.slice(0, 6)}...{address.slice(-4)}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
