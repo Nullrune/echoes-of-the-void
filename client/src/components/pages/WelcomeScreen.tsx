@@ -6,8 +6,10 @@ import { useStarknetConnect } from "../../dojo/hooks/useStarknetConnect";
 import { useGame } from "../../context/game-context";
 import Logo from "../ui/logo";
 import VoidParticles from "../ui/void-particles";
-// Import the background image
+import useAudio from "../../hooks/useAudio";
+import AudioControl from "../ui/audio-control";
 import bgTitleScreen from "../../assets/bg-title-screen.png";
+import bgMusic from "../../assets/audio/Echoes of the Cipher.mp3";
 
 export default function WelcomeScreen() {
   const { status, handleConnect } = useStarknetConnect();
@@ -18,6 +20,9 @@ export default function WelcomeScreen() {
   const { state: gameState, dispatch } = useGame();
   const [startingGame, setStartingGame] = useState(false);
   const [transitionToGame, setTransitionToGame] = useState(false);
+  
+  // Audio setup
+  const { loadTrack, playSound, stopMusic } = useAudio();
 
   // Ensure black background and prevent scrolling
   useEffect(() => {
@@ -34,9 +39,139 @@ export default function WelcomeScreen() {
       document.documentElement.style.overflow = '';
     };
   }, []);
+  
+  // Load audio
+  useEffect(() => {
+    // Load background music
+    const loadAudio = async () => {
+      try {
+        await loadTrack('bg-music', bgMusic, { loop: true, volume: 0.7 });
+      } catch (error) {
+        console.error('Failed to load audio:', error);
+      }
+    };
+    
+    loadAudio();
+    
+    // Create button click sound using AudioContext API
+    const createClickSound = async () => {
+      try {
+        // Get the appropriate AudioContext for the browser
+        // @ts-expect-error: Safari requires webkitAudioContext
+        const AudioContextClass: typeof AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContextClass();
+        const clickBuffer = audioContext.createBuffer(1, 1000, audioContext.sampleRate);
+        const channelData = clickBuffer.getChannelData(0);
+        
+        // Generate a soft click sound
+        for (let i = 0; i < clickBuffer.length; i++) {
+          // Exponential decay
+          channelData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (clickBuffer.length / 8));
+        }
+        
+        const clickBlob = await audioToBlob(clickBuffer);
+        const clickUrl = URL.createObjectURL(clickBlob);
+        
+        // Load the generated click sound
+        loadTrack('button-click', clickUrl, { volume: 0.3 });
+      } catch (error) {
+        console.error('Failed to create click sound:', error);
+      }
+    };
+    
+    createClickSound();
+    
+    // Clean up on unmount
+    return () => {
+      stopMusic('bg-music', { fadeOut: 1 });
+    };
+  }, [loadTrack, stopMusic]);
+  
+  // Remove the unused functions and state
+  // Function to start music manually if autoplay is blocked - now handled by AudioControl
+  // Add click handler to the entire screen - now handled by AudioControl
+  
+  // Helper function to convert AudioBuffer to Blob
+  const audioToBlob = async (audioBuffer: AudioBuffer): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const offlineContext = new OfflineAudioContext(
+        audioBuffer.numberOfChannels,
+        audioBuffer.length,
+        audioBuffer.sampleRate
+      );
+      
+      const source = offlineContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineContext.destination);
+      source.start(0);
+      
+      offlineContext.startRendering().then((renderedBuffer) => {
+        const wavBlob = bufferToWave(renderedBuffer);
+        resolve(wavBlob);
+      });
+    });
+  };
+  
+  // Helper function to convert AudioBuffer to WAV format
+  const bufferToWave = (abuffer: AudioBuffer): Blob => {
+    const numOfChan = abuffer.numberOfChannels;
+    const length = abuffer.length * numOfChan * 2 + 44;
+    const buffer = new ArrayBuffer(length);
+    const view = new DataView(buffer);
+    const channels = [];
+    let offset = 0;
+    let pos = 0;
+    
+    // Write WAV header
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8); // file length - 8
+    setUint32(0x45564157); // "WAVE"
+    setUint32(0x20746d66); // "fmt " chunk
+    setUint32(16); // length = 16
+    setUint16(1); // PCM (uncompressed)
+    setUint16(numOfChan);
+    setUint32(abuffer.sampleRate);
+    setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+    setUint16(numOfChan * 2); // block-align
+    setUint16(16); // 16-bit (depth)
+    setUint32(0x61746164); // "data" - chunk
+    setUint32(length - pos - 4); // chunk length
+    
+    // Write interleaved data
+    for (let i = 0; i < abuffer.numberOfChannels; i++) {
+      channels.push(abuffer.getChannelData(i));
+    }
+    
+    while (pos < length) {
+      for (let i = 0; i < numOfChan; i++) {
+        if (pos < length) {
+          let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+          sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+          view.setInt16(pos, sample, true);
+          pos += 2;
+        }
+      }
+      offset++;
+    }
+    
+    function setUint16(data: number) {
+      view.setUint16(pos, data, true);
+      pos += 2;
+    }
+    
+    function setUint32(data: number) {
+      view.setUint32(pos, data, true);
+      pos += 4;
+    }
+    
+    return new Blob([buffer], { type: "audio/wav" });
+  };
 
   // Handle sign in and player creation
   const handleSignIn = async () => {
+    // Play button click sound
+    playSound('button-click');
+    
     if (status !== "connected") {
       dispatch({ type: "CONNECT_WALLET_START" });
       await handleConnect();
@@ -50,6 +185,9 @@ export default function WelcomeScreen() {
 
   // Handle starting a new game
   const handleStartGame = async () => {
+    // Play button click sound
+    playSound('button-click');
+    
     if (status === "connected" && player && !startGameState.isLoading && !startingGame) {
       setStartingGame(true);
       
@@ -164,11 +302,16 @@ export default function WelcomeScreen() {
       return () => clearInterval(interval);
     }, [isActive, disabled]);
     
+    // Handle hover sound effect
+    const handleMouseEnter = () => {
+      setIsHovered(true);
+    };
+    
     return (
       <button
         onClick={onClick}
         disabled={disabled}
-        onMouseEnter={() => setIsHovered(true)}
+        onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setIsHovered(false)}
         className={`
           w-full py-3 px-6 
@@ -257,6 +400,11 @@ export default function WelcomeScreen() {
       
       {/* Vignette overlay for better text readability and void-like effect */}
       <div className="absolute inset-0 bg-gradient-radial from-transparent to-black opacity-80 z-1"></div>
+      
+      {/* Audio control */}
+      <div className="absolute top-4 right-4 z-20">
+        <AudioControl className="text-white opacity-70 hover:opacity-100 transition-opacity" />
+      </div>
       
       {/* Main content container - using flex with auto margins to prevent overflow */}
       <div className="flex flex-col h-full w-full max-h-full z-10 relative px-4 py-4">
